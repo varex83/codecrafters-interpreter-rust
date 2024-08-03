@@ -3,6 +3,7 @@ mod scanner;
 use std::env;
 use std::fs;
 use std::io::{self, Write};
+use std::process::exit;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -25,12 +26,20 @@ fn main() {
 
             let (tokens, errors) = scanner.scan_tokens();
 
+            let is_error = !errors.is_empty();
+
             for error in errors {
                 writeln!(io::stderr(), "{}", error).unwrap();
             }
 
             for token in tokens {
                 println!("{}", token);
+            }
+
+            if is_error {
+                exit(65)
+            } else {
+                exit(0)
             }
         }
         _ => {
