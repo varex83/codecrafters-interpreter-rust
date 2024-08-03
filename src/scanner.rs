@@ -62,6 +62,13 @@ impl<'a> Scanner<'a> {
                         tokens.push(Token::new(TokenKind::Greater, ">".to_string()));
                     }
                 }
+                '/' => {
+                    if self.buffer.matches("/") {
+                        self.buffer.advance_while(|c| c != '\n');
+                    } else {
+                        tokens.push(Token::new(TokenKind::Slash, "/".to_string()));
+                    }
+                }
                 ch => {
                     if ch == ' ' || ch == '\t' || ch == '\r' {
                         continue;
@@ -360,5 +367,18 @@ impl<'a> Buffer<'a> {
 
     pub fn advance_n(&mut self, n: usize) {
         self.source = &self.source[n..];
+    }
+
+    pub fn advance_while<F>(&mut self, mut f: F)
+    where
+        F: FnMut(char) -> bool,
+    {
+        while let Some(c) = self.peek() {
+            if f(c) {
+                self.advance();
+            } else {
+                break;
+            }
+        }
     }
 }
