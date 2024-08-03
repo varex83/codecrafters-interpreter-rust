@@ -18,7 +18,7 @@ impl<'a> Scanner<'a> {
         let mut tokens = Vec::new();
         let mut line_number = 1;
 
-        while let Some(c) = self.buffer.peek() {
+        while let Some(c) = self.buffer.advance() {
             match c {
                 '(' => tokens.push(Token::new(TokenKind::LeftParen, "(".to_string())),
                 ')' => tokens.push(Token::new(TokenKind::RightParen, ")".to_string())),
@@ -33,7 +33,7 @@ impl<'a> Scanner<'a> {
                 '!' => {
                     if self.buffer.matches("=") {
                         tokens.push(Token::new(TokenKind::BangEqual, "!=".to_string()));
-                        self.buffer.peek();
+                        self.buffer.advance();
                     } else {
                         tokens.push(Token::new(TokenKind::Bang, "!".to_string()));
                     }
@@ -41,7 +41,7 @@ impl<'a> Scanner<'a> {
                 '=' => {
                     if self.buffer.matches("=") {
                         tokens.push(Token::new(TokenKind::EqualEqual, "==".to_string()));
-                        self.buffer.peek();
+                        self.buffer.advance();
                     } else {
                         tokens.push(Token::new(TokenKind::Equal, "=".to_string()));
                     }
@@ -49,7 +49,7 @@ impl<'a> Scanner<'a> {
                 '<' => {
                     if self.buffer.matches("=") {
                         tokens.push(Token::new(TokenKind::LessEqual, "<=".to_string()));
-                        self.buffer.peek();
+                        self.buffer.advance();
                     } else {
                         tokens.push(Token::new(TokenKind::Less, "<".to_string()));
                     }
@@ -57,7 +57,7 @@ impl<'a> Scanner<'a> {
                 '>' => {
                     if self.buffer.matches("=") {
                         tokens.push(Token::new(TokenKind::GreaterEqual, ">=".to_string()));
-                        self.buffer.peek();
+                        self.buffer.advance();
                     } else {
                         tokens.push(Token::new(TokenKind::Greater, ">".to_string()));
                     }
@@ -341,7 +341,7 @@ impl<'a> Buffer<'a> {
         Self { source }
     }
 
-    pub fn peek(&mut self) -> Option<char> {
+    pub fn advance(&mut self) -> Option<char> {
         let elem = self.source.chars().next();
 
         if elem.is_some() {
@@ -351,6 +351,10 @@ impl<'a> Buffer<'a> {
         }
 
         elem
+    }
+
+    pub fn peek(&self) -> Option<char> {
+        self.source.chars().next()
     }
 
     pub fn matches(&self, expected: &str) -> bool {
@@ -372,6 +376,8 @@ impl<'a> Buffer<'a> {
         while let Some(c) = self.peek() {
             if !f(c) {
                 break;
+            } else {
+                self.advance();
             }
         }
     }
