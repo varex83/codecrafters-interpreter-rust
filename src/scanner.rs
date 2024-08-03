@@ -13,8 +13,11 @@ impl<'a> Scanner<'a> {
         }
     }
 
-    pub fn scan_tokens(&mut self) -> Result<Vec<Token>, ScannerError> {
+    pub fn scan_tokens(&mut self) -> (Vec<Token>, Vec<ScannerError>) {
+        let mut scanner_errors = Vec::new();
         let mut tokens = Vec::new();
+        let mut line_number = 1;
+
         while let Some(c) = self.buffer.peek() {
             match c {
                 '(' => tokens.push(Token::new(TokenKind::LeftParen, "(".to_string())),
@@ -59,13 +62,24 @@ impl<'a> Scanner<'a> {
                         tokens.push(Token::new(TokenKind::Greater, ">".to_string()));
                     }
                 }
-                _ => continue,
+                ch => {
+                    if ch == ' ' || ch == '\t' || ch == '\r' {
+                        continue;
+                    } else if ch == '\n' {
+                        line_number += 1;
+                    } else {
+                        scanner_errors.push(ScannerError {
+                            loc: Loc { line: line_number },
+                            message: format!("Unexpected character: {}", ch),
+                        });
+                    }
+                }
             }
         }
 
         tokens.push(Token::new(TokenKind::EOF, "".to_string()));
 
-        Ok(tokens)
+        (tokens, scanner_errors)
     }
 }
 
