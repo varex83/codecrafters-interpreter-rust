@@ -37,6 +37,13 @@ impl<'a> Scanner<'a> {
                     }
                 }
 
+                // Idents
+                c if c.is_alphabetic() || c == '_' => {
+                    if let Some(token) = self.scan_ident() {
+                        tokens.push(token)
+                    }
+                }
+
                 // Simple tokens:
                 c => {
                     self.buffer.advance();
@@ -178,6 +185,22 @@ impl<'a> Scanner<'a> {
 
         Some(Token::new_num(lexeme, floating))
     }
+
+    fn scan_ident(&mut self) -> Option<Token> {
+        let mut lexeme = String::new();
+
+        while let Some(value) = self.buffer.peek(0) {
+            // We can suppose that this function is triggered only from letter or underscore
+            if value.is_alphabetic() || value == '_' || value.is_ascii_digit() {
+                lexeme.push(value);
+                self.buffer.advance();
+            } else {
+                break;
+            }
+        }
+
+        Some(Token::new_ident(lexeme))
+    }
 }
 
 pub struct Token {
@@ -211,7 +234,16 @@ impl Token {
             loc: Default::default(),
             kind: TokenKind::Number,
             lexeme: lexeme.clone(),
-            literal: Literal(Some(if floating { lexeme } else { lexeme + ".0" })),
+            literal: Literal::some(if floating { lexeme } else { lexeme + ".0" }),
+        }
+    }
+
+    pub fn new_ident(lexeme: String) -> Self {
+        Self {
+            loc: Default::default(),
+            kind: TokenKind::Identifier,
+            lexeme,
+            literal: Literal::none(),
         }
     }
 }
