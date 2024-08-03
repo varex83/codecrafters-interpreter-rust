@@ -2,6 +2,11 @@
 
 use std::fmt::{Display, Formatter};
 
+const RESERVED: [&'static str; 16] = [
+    "and", "class", "else", "false", "fun", "for", "if", "nil", "or", "print", "return", "super",
+    "this", "true", "var", "while",
+];
+
 pub struct Scanner<'a> {
     buffer: Buffer<'a>,
     line_number: u32,
@@ -37,9 +42,9 @@ impl<'a> Scanner<'a> {
                     }
                 }
 
-                // Idents
+                // Idents or Reserved words
                 c if c.is_alphabetic() || c == '_' => {
-                    if let Some(token) = self.scan_ident() {
+                    if let Some(token) = self.scan_ident_or_reserved() {
                         tokens.push(token)
                     }
                 }
@@ -186,7 +191,7 @@ impl<'a> Scanner<'a> {
         Some(Token::new_num(lexeme, floating))
     }
 
-    fn scan_ident(&mut self) -> Option<Token> {
+    fn scan_ident_or_reserved(&mut self) -> Option<Token> {
         let mut lexeme = String::new();
 
         while let Some(value) = self.buffer.peek(0) {
@@ -197,6 +202,29 @@ impl<'a> Scanner<'a> {
             } else {
                 break;
             }
+        }
+
+        // Check for reserved words
+        if RESERVED.contains(&lexeme.as_str()) {
+            return match lexeme.as_str() {
+                "and" => Some(Token::new(TokenKind::And, lexeme)),
+                "class" => Some(Token::new(TokenKind::Class, lexeme)),
+                "else" => Some(Token::new(TokenKind::Else, lexeme)),
+                "false" => Some(Token::new(TokenKind::False, lexeme)),
+                "fun" => Some(Token::new(TokenKind::Fun, lexeme)),
+                "for" => Some(Token::new(TokenKind::For, lexeme)),
+                "if" => Some(Token::new(TokenKind::If, lexeme)),
+                "nil" => Some(Token::new(TokenKind::Nil, lexeme)),
+                "or" => Some(Token::new(TokenKind::Or, lexeme)),
+                "print" => Some(Token::new(TokenKind::Print, lexeme)),
+                "return" => Some(Token::new(TokenKind::Return, lexeme)),
+                "super" => Some(Token::new(TokenKind::Super, lexeme)),
+                "this" => Some(Token::new(TokenKind::This, lexeme)),
+                "true" => Some(Token::new(TokenKind::True, lexeme)),
+                "var" => Some(Token::new(TokenKind::Var, lexeme)),
+                "while" => Some(Token::new(TokenKind::While, lexeme)),
+                c => panic!("Unknown reserved word: {}", c),
+            };
         }
 
         Some(Token::new_ident(lexeme))
