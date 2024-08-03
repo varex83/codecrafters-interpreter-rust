@@ -230,11 +230,28 @@ impl Token {
     }
 
     pub fn new_num(lexeme: String, floating: bool) -> Self {
+        let mut literal = lexeme.clone();
+
+        if floating {
+            while let Some(ch) = literal.pop() {
+                if ch != '0' {
+                    literal.push(ch);
+                    break;
+                }
+            }
+
+            if literal.ends_with('.') {
+                literal += "0";
+            }
+        } else {
+            literal += ".0";
+        }
+
         Self {
             loc: Default::default(),
             kind: TokenKind::Number,
             lexeme: lexeme.clone(),
-            literal: Literal::some(if floating { lexeme } else { lexeme + ".0" }),
+            literal: Literal::some(literal),
         }
     }
 
