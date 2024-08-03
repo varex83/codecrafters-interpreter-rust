@@ -63,7 +63,7 @@ impl<'a> Scanner<'a> {
                     }
                 }
                 ch => {
-                    if ch == ' ' || ch == '\t' || ch == '\r' {
+                    if ch == ' ' || ch == '\t' || ch == '\r' || ch == '@' {
                         continue;
                     } else if ch == '\n' {
                         line_number += 1;
