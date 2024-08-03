@@ -24,10 +24,7 @@ impl<'a> Scanner<'a> {
             match c {
                 '"' => {
                     if is_reading_string {
-                        tokens.push(Token::new(
-                            TokenKind::String,
-                            format!("\"{}\"", str_literal_buffer.clone()),
-                        ));
+                        tokens.push(Token::new_str(str_literal_buffer.clone()));
                         str_literal_buffer.clear();
                     }
 
@@ -100,6 +97,13 @@ impl<'a> Scanner<'a> {
 
         tokens.push(Token::new(TokenKind::EOF, "".to_string()));
 
+        if is_reading_string {
+            scanner_errors.push(ScannerError {
+                loc: Loc { line: line_number },
+                message: "Unterminated string.".to_string(),
+            });
+        }
+
         (tokens, scanner_errors)
     }
 }
@@ -118,6 +122,15 @@ impl Token {
             kind,
             lexeme,
             literal: Literal::none(),
+        }
+    }
+
+    pub fn new_str(lexeme: String) -> Self {
+        Self {
+            loc: Default::default(),
+            kind: TokenKind::String,
+            lexeme: format!("\"{}\"", lexeme),
+            literal: Literal::some(lexeme),
         }
     }
 }
