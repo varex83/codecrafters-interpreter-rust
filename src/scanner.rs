@@ -17,9 +17,23 @@ impl<'a> Scanner<'a> {
         let mut scanner_errors = Vec::new();
         let mut tokens = Vec::new();
         let mut line_number = 1;
+        let mut str_literal_buffer = String::new();
+        let mut is_reading_string = false;
 
         while let Some(c) = self.buffer.advance() {
             match c {
+                '"' => {
+                    if is_reading_string {
+                        tokens.push(Token::new(
+                            TokenKind::String,
+                            format!("\"{}\"", str_literal_buffer.clone()),
+                        ));
+                        str_literal_buffer.clear();
+                    }
+
+                    is_reading_string = !is_reading_string;
+                }
+                c if is_reading_string == true => str_literal_buffer.push(c),
                 '(' => tokens.push(Token::new(TokenKind::LeftParen, "(".to_string())),
                 ')' => tokens.push(Token::new(TokenKind::RightParen, ")".to_string())),
                 '{' => tokens.push(Token::new(TokenKind::LeftBrace, "{".to_string())),
