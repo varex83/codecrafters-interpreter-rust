@@ -33,7 +33,7 @@ impl<'a> Scanner<'a> {
                 '!' => {
                     if self.buffer.matches("=") {
                         tokens.push(Token::new(TokenKind::BangEqual, "!=".to_string()));
-                        self.buffer.advance();
+                        self.buffer.peek();
                     } else {
                         tokens.push(Token::new(TokenKind::Bang, "!".to_string()));
                     }
@@ -41,7 +41,7 @@ impl<'a> Scanner<'a> {
                 '=' => {
                     if self.buffer.matches("=") {
                         tokens.push(Token::new(TokenKind::EqualEqual, "==".to_string()));
-                        self.buffer.advance();
+                        self.buffer.peek();
                     } else {
                         tokens.push(Token::new(TokenKind::Equal, "=".to_string()));
                     }
@@ -49,7 +49,7 @@ impl<'a> Scanner<'a> {
                 '<' => {
                     if self.buffer.matches("=") {
                         tokens.push(Token::new(TokenKind::LessEqual, "<=".to_string()));
-                        self.buffer.advance();
+                        self.buffer.peek();
                     } else {
                         tokens.push(Token::new(TokenKind::Less, "<".to_string()));
                     }
@@ -57,7 +57,7 @@ impl<'a> Scanner<'a> {
                 '>' => {
                     if self.buffer.matches("=") {
                         tokens.push(Token::new(TokenKind::GreaterEqual, ">=".to_string()));
-                        self.buffer.advance();
+                        self.buffer.peek();
                     } else {
                         tokens.push(Token::new(TokenKind::Greater, ">".to_string()));
                     }
@@ -345,16 +345,12 @@ impl<'a> Buffer<'a> {
         let elem = self.source.chars().next();
 
         if elem.is_some() {
-            self.source = &self.source[1..];
+            let elem_size = elem.unwrap().len_utf8();
+
+            self.source = &self.source[elem_size..];
         }
 
         elem
-    }
-
-    pub fn advance(&mut self) -> Option<char> {
-        let c = self.source.chars().next();
-        self.source = &self.source[1..];
-        c
     }
 
     pub fn matches(&self, expected: &str) -> bool {
@@ -374,9 +370,7 @@ impl<'a> Buffer<'a> {
         F: FnMut(char) -> bool,
     {
         while let Some(c) = self.peek() {
-            if f(c) {
-                self.advance();
-            } else {
+            if !f(c) {
                 break;
             }
         }
