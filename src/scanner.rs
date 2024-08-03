@@ -4,92 +4,106 @@ use std::fmt::{Display, Formatter};
 
 pub struct Scanner<'a> {
     buffer: Buffer<'a>,
+    line_number: u32,
+    pub errors: Vec<ScannerError>,
 }
 
 impl<'a> Scanner<'a> {
     pub fn new(source: &'a str) -> Self {
         Self {
             buffer: Buffer::new(source),
+            line_number: 1,
+            errors: vec![],
         }
     }
 
-    pub fn scan_tokens(&mut self) -> (Vec<Token>, Vec<ScannerError>) {
-        let mut scanner_errors = Vec::new();
+    pub fn scan_tokens(&mut self) -> Vec<Token> {
         let mut tokens = Vec::new();
-        let mut line_number = 1;
-        let mut str_literal_buffer = String::new();
-        let mut is_reading_string = false;
 
-        while let Some(c) = self.buffer.advance() {
+        while let Some(c) = self.buffer.peek(0) {
             match c {
+                // String literals
                 '"' => {
-                    if is_reading_string {
-                        tokens.push(Token::new_str(str_literal_buffer.clone()));
-                        str_literal_buffer.clear();
+                    self.buffer.advance();
+                    if let Some(token) = self.scan_string() {
+                        tokens.push(token)
                     }
+                }
 
-                    is_reading_string = !is_reading_string;
-                }
-                c if is_reading_string == true => str_literal_buffer.push(c),
-                '(' => tokens.push(Token::new(TokenKind::LeftParen, "(".to_string())),
-                ')' => tokens.push(Token::new(TokenKind::RightParen, ")".to_string())),
-                '{' => tokens.push(Token::new(TokenKind::LeftBrace, "{".to_string())),
-                '}' => tokens.push(Token::new(TokenKind::RightBrace, "}".to_string())),
-                ',' => tokens.push(Token::new(TokenKind::Comma, ",".to_string())),
-                '.' => tokens.push(Token::new(TokenKind::Dot, ".".to_string())),
-                '-' => tokens.push(Token::new(TokenKind::Minus, "-".to_string())),
-                '+' => tokens.push(Token::new(TokenKind::Plus, "+".to_string())),
-                ';' => tokens.push(Token::new(TokenKind::Semicolon, ";".to_string())),
-                '*' => tokens.push(Token::new(TokenKind::Star, "*".to_string())),
-                '!' => {
-                    if self.buffer.matches("=") {
-                        tokens.push(Token::new(TokenKind::BangEqual, "!=".to_string()));
-                        self.buffer.advance();
-                    } else {
-                        tokens.push(Token::new(TokenKind::Bang, "!".to_string()));
+                // Numbers
+                c if c.is_ascii_digit() => {
+                    if let Some(token) = self.scan_number() {
+                        tokens.push(token)
                     }
                 }
-                '=' => {
-                    if self.buffer.matches("=") {
-                        tokens.push(Token::new(TokenKind::EqualEqual, "==".to_string()));
-                        self.buffer.advance();
-                    } else {
-                        tokens.push(Token::new(TokenKind::Equal, "=".to_string()));
-                    }
-                }
-                '<' => {
-                    if self.buffer.matches("=") {
-                        tokens.push(Token::new(TokenKind::LessEqual, "<=".to_string()));
-                        self.buffer.advance();
-                    } else {
-                        tokens.push(Token::new(TokenKind::Less, "<".to_string()));
-                    }
-                }
-                '>' => {
-                    if self.buffer.matches("=") {
-                        tokens.push(Token::new(TokenKind::GreaterEqual, ">=".to_string()));
-                        self.buffer.advance();
-                    } else {
-                        tokens.push(Token::new(TokenKind::Greater, ">".to_string()));
-                    }
-                }
-                '/' => {
-                    if self.buffer.matches("/") {
-                        self.buffer.advance_while(|c| c != '\n');
-                    } else {
-                        tokens.push(Token::new(TokenKind::Slash, "/".to_string()));
-                    }
-                }
-                ch => {
-                    if ch == ' ' || ch == '\t' || ch == '\r' {
-                        continue;
-                    } else if ch == '\n' {
-                        line_number += 1;
-                    } else {
-                        scanner_errors.push(ScannerError {
-                            loc: Loc { line: line_number },
-                            message: format!("Unexpected character: {}", ch),
-                        });
+
+                // Simple tokens:
+                c => {
+                    self.buffer.advance();
+                    match c {
+                        '(' => tokens.push(Token::new(TokenKind::LeftParen, "(".to_string())),
+                        ')' => tokens.push(Token::new(TokenKind::RightParen, ")".to_string())),
+                        '{' => tokens.push(Token::new(TokenKind::LeftBrace, "{".to_string())),
+                        '}' => tokens.push(Token::new(TokenKind::RightBrace, "}".to_string())),
+                        ',' => tokens.push(Token::new(TokenKind::Comma, ",".to_string())),
+                        '.' => tokens.push(Token::new(TokenKind::Dot, ".".to_string())),
+                        '-' => tokens.push(Token::new(TokenKind::Minus, "-".to_string())),
+                        '+' => tokens.push(Token::new(TokenKind::Plus, "+".to_string())),
+                        ';' => tokens.push(Token::new(TokenKind::Semicolon, ";".to_string())),
+                        '*' => tokens.push(Token::new(TokenKind::Star, "*".to_string())),
+                        '!' => {
+                            if self.buffer.matches("=") {
+                                tokens.push(Token::new(TokenKind::BangEqual, "!=".to_string()));
+                                self.buffer.advance();
+                            } else {
+                                tokens.push(Token::new(TokenKind::Bang, "!".to_string()));
+                            }
+                        }
+                        '=' => {
+                            if self.buffer.matches("=") {
+                                tokens.push(Token::new(TokenKind::EqualEqual, "==".to_string()));
+                                self.buffer.advance();
+                            } else {
+                                tokens.push(Token::new(TokenKind::Equal, "=".to_string()));
+                            }
+                        }
+                        '<' => {
+                            if self.buffer.matches("=") {
+                                tokens.push(Token::new(TokenKind::LessEqual, "<=".to_string()));
+                                self.buffer.advance();
+                            } else {
+                                tokens.push(Token::new(TokenKind::Less, "<".to_string()));
+                            }
+                        }
+                        '>' => {
+                            if self.buffer.matches("=") {
+                                tokens.push(Token::new(TokenKind::GreaterEqual, ">=".to_string()));
+                                self.buffer.advance();
+                            } else {
+                                tokens.push(Token::new(TokenKind::Greater, ">".to_string()));
+                            }
+                        }
+                        '/' => {
+                            if self.buffer.matches("/") {
+                                self.buffer.advance_while(|c| c != '\n');
+                            } else {
+                                tokens.push(Token::new(TokenKind::Slash, "/".to_string()));
+                            }
+                        }
+                        ch => {
+                            if ch == ' ' || ch == '\t' || ch == '\r' {
+                                continue;
+                            } else if ch == '\n' {
+                                self.line_number += 1;
+                            } else {
+                                self.errors.push(ScannerError {
+                                    loc: Loc {
+                                        line: self.line_number,
+                                    },
+                                    message: format!("Unexpected character: {}", ch),
+                                });
+                            }
+                        }
                     }
                 }
             }
@@ -97,14 +111,72 @@ impl<'a> Scanner<'a> {
 
         tokens.push(Token::new(TokenKind::EOF, "".to_string()));
 
-        if is_reading_string {
-            scanner_errors.push(ScannerError {
-                loc: Loc { line: line_number },
-                message: "Unterminated string.".to_string(),
-            });
+        tokens
+    }
+
+    fn scan_string(&mut self) -> Option<Token> {
+        let mut str_literal_buffer = String::new();
+        let mut is_finished = false;
+
+        while let Some(c) = self.buffer.advance() {
+            if c == '"' {
+                is_finished = true;
+                break;
+            }
+
+            str_literal_buffer.push(c);
         }
 
-        (tokens, scanner_errors)
+        if !is_finished {
+            self.errors.push(ScannerError {
+                loc: Loc {
+                    line: self.line_number,
+                },
+                message: "Unterminated string.".to_string(),
+            });
+            None
+        } else {
+            Some(Token::new_str(str_literal_buffer))
+        }
+    }
+
+    fn scan_number(&mut self) -> Option<Token> {
+        let mut lexeme = String::new();
+        let mut floating = false;
+        while let Some(value) = self.buffer.peek(0) {
+            if value.is_ascii_digit() {
+                lexeme.push(value);
+                self.buffer.advance();
+            } else if value == '.' {
+                if floating {
+                    break;
+                }
+
+                let next = self.buffer.peek(1);
+
+                if next.is_none() {
+                    break;
+                }
+
+                let next = next.unwrap();
+
+                if !next.is_ascii_digit() {
+                    break;
+                }
+
+                floating = true;
+                lexeme.push(value);
+                self.buffer.advance();
+            } else {
+                break;
+            }
+
+            if value == '.' {
+                floating = true;
+            }
+        }
+
+        Some(Token::new_num(lexeme, floating))
     }
 }
 
@@ -131,6 +203,15 @@ impl Token {
             kind: TokenKind::String,
             lexeme: format!("\"{}\"", lexeme),
             literal: Literal::some(lexeme),
+        }
+    }
+
+    pub fn new_num(lexeme: String, floating: bool) -> Self {
+        Self {
+            loc: Default::default(),
+            kind: TokenKind::Number,
+            lexeme: lexeme.clone(),
+            literal: Literal(Some(if floating { lexeme } else { lexeme + ".0" })),
         }
     }
 }
@@ -380,8 +461,8 @@ impl<'a> Buffer<'a> {
         elem
     }
 
-    pub fn peek(&self) -> Option<char> {
-        self.source.chars().next()
+    pub fn peek(&self, index: usize) -> Option<char> {
+        self.source.chars().nth(index)
     }
 
     pub fn matches(&self, expected: &str) -> bool {
@@ -400,12 +481,16 @@ impl<'a> Buffer<'a> {
     where
         F: FnMut(char) -> bool,
     {
-        while let Some(c) = self.peek() {
+        while let Some(c) = self.peek(0) {
             if !f(c) {
                 break;
             } else {
                 self.advance();
             }
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.source.is_empty()
     }
 }

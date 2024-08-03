@@ -24,11 +24,11 @@ fn main() {
 
             let mut scanner = scanner::Scanner::new(&file_contents);
 
-            let (tokens, errors) = scanner.scan_tokens();
+            let tokens = scanner.scan_tokens();
 
-            let is_error = !errors.is_empty();
+            let is_error = !scanner.errors.is_empty();
 
-            for error in errors {
+            for error in scanner.errors {
                 writeln!(io::stderr(), "{}", error).unwrap();
             }
 
