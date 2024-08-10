@@ -98,6 +98,8 @@ impl Not for EvalResult {
     fn not(self) -> Self::Output {
         Ok(match self {
             Self::Bool(x) => Self::Bool(!x),
+            Self::Number(x) => Self::Bool(x == 0.0),
+            Self::Nil => Self::Bool(true),
             x => bail!("RUNTIME_ERR: Can't negate {:?}", x),
         })
     }
