@@ -255,7 +255,7 @@ impl Display for Expr {
                 write!(f, "({})", binary)
             }
             Expr::Grouping(grouping) => {
-                write!(f, "{}", grouping)
+                write!(f, "({})", grouping)
             }
             Expr::Unary(unary) => {
                 write!(f, "({})", unary)
@@ -291,7 +291,7 @@ impl Display for Binary {
 
 impl Display for Grouping {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({})", self.expr)
+        write!(f, "group {}", self.expr)
     }
 }
 
