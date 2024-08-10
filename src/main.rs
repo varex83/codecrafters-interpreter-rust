@@ -1,9 +1,31 @@
+mod parser;
 mod scanner;
 
+use crate::parser::Parser;
+use crate::scanner::Token;
 use std::env;
 use std::fs;
 use std::io::{self, Write};
 use std::process::exit;
+
+fn tokenize(filename: &str) -> (Vec<Token>, bool) {
+    let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
+        writeln!(io::stderr(), "Failed to read file {}", filename).unwrap();
+        String::new()
+    });
+
+    let mut scanner = scanner::Scanner::new(&file_contents);
+
+    let tokens = scanner.scan_tokens();
+
+    let is_error = !scanner.errors.is_empty();
+
+    for error in scanner.errors {
+        writeln!(io::stderr(), "{}", error).unwrap();
+    }
+
+    (tokens, is_error)
+}
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -17,26 +39,40 @@ fn main() {
 
     match command.as_str() {
         "tokenize" => {
-            let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
-                writeln!(io::stderr(), "Failed to read file {}", filename).unwrap();
-                String::new()
-            });
-
-            let mut scanner = scanner::Scanner::new(&file_contents);
-
-            let tokens = scanner.scan_tokens();
-
-            let is_error = !scanner.errors.is_empty();
-
-            for error in scanner.errors {
-                writeln!(io::stderr(), "{}", error).unwrap();
-            }
+            let (tokens, is_error) = tokenize(filename);
 
             for token in tokens {
                 println!("{}", token);
             }
 
             if is_error {
+                exit(65)
+            } else {
+                exit(0)
+            }
+        }
+        "parse" => {
+            let (tokens, is_error_lexing) = tokenize(filename);
+
+            let parsed = Parser::new_parse(tokens);
+
+            let is_error_parsing = parsed.is_err();
+
+            if is_error_parsing {
+                writeln!(
+                    io::stderr(),
+                    "Error while parsing {}: {}",
+                    filename,
+                    parsed.unwrap_err()
+                )
+                .unwrap();
+            } else {
+                let ast = parsed.unwrap();
+
+                println!("{}", ast);
+            }
+
+            if is_error_lexing || is_error_parsing {
                 exit(65)
             } else {
                 exit(0)

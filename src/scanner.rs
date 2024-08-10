@@ -231,11 +231,18 @@ impl<'a> Scanner<'a> {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Token {
     pub loc: Loc,
     pub kind: TokenKind,
     pub lexeme: String,
     pub literal: Literal,
+}
+
+impl PartialEq for Token {
+    fn eq(&self, other: &Self) -> bool {
+        self.kind == other.kind
+    }
 }
 
 impl Token {
@@ -299,6 +306,7 @@ impl Display for Token {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct Literal(Option<String>);
 
 impl Literal {
@@ -324,7 +332,7 @@ impl Display for Literal {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct Loc {
     pub line: u32,
 }
@@ -335,6 +343,7 @@ impl Display for Loc {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind {
     LeftParen,
     RightParen,
