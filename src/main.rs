@@ -80,7 +80,7 @@ fn main() {
                 exit(0)
             }
         }
-        "eval" => {
+        "evaluate" => {
             let (tokens, _is_error_lexing) = tokenize(filename);
 
             let parsed = Parser::new_parse(tokens);
