@@ -163,10 +163,54 @@ impl Evaluate for Binary {
             TokenKind::Minus => left - right,
             TokenKind::Star => left * right,
             TokenKind::Slash => left / right,
-            TokenKind::Greater => (left > right).eval(),
-            TokenKind::GreaterEqual => (left >= right).eval(),
-            TokenKind::Less => (left < right).eval(),
-            TokenKind::LessEqual => (left <= right).eval(),
+            TokenKind::Greater => {
+                let res = left.partial_cmp(&right);
+
+                match res {
+                    Some(Ordering::Greater) => Ok(EvalResult::Bool(true)),
+                    _ => bail!(
+                        "RUNTIME_ERR: Invalid comparison between {:?} and {:?}",
+                        left,
+                        right
+                    ),
+                }
+            }
+            TokenKind::GreaterEqual => {
+                let res = left.partial_cmp(&right);
+
+                match res {
+                    Some(Ordering::Greater) | Some(Ordering::Equal) => Ok(EvalResult::Bool(true)),
+                    _ => bail!(
+                        "RUNTIME_ERR: Invalid comparison between {:?} and {:?}",
+                        left,
+                        right
+                    ),
+                }
+            }
+            TokenKind::Less => {
+                let res = left.partial_cmp(&right);
+
+                match res {
+                    Some(Ordering::Less) => Ok(EvalResult::Bool(true)),
+                    _ => bail!(
+                        "RUNTIME_ERR: Invalid comparison between {:?} and {:?}",
+                        left,
+                        right
+                    ),
+                }
+            }
+            TokenKind::LessEqual => {
+                let res = left.partial_cmp(&right);
+
+                match res {
+                    Some(Ordering::Less) | Some(Ordering::Equal) => Ok(EvalResult::Bool(true)),
+                    _ => bail!(
+                        "RUNTIME_ERR: Invalid comparison between {:?} and {:?}",
+                        left,
+                        right
+                    ),
+                }
+            }
             TokenKind::EqualEqual => (left == right).eval(),
             TokenKind::BangEqual => (left != right).eval(),
             _ => bail!("RUNTIME_ERR: Invalid binary operator {:?}", self.operator),
