@@ -161,7 +161,7 @@ impl Parser {
 
     fn unary(&mut self) -> ParserResult {
         if let Some(operator) = self.match_tokens(&[TokenKind::Bang, TokenKind::Minus]) {
-            let rhs = self.primary()?;
+            let rhs = self.unary()?;
 
             Ok(Expr::Unary(Unary {
                 operator,
