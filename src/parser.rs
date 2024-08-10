@@ -211,7 +211,7 @@ impl Parser {
                     expr: Box::new(result),
                 }))
             }
-            _ => bail!("unsupported token kind <{}> at {}", token.kind, token.loc),
+            _ => bail!("unexpected token <{}> at {}", token.kind, token.loc),
         }
     }
 }

@@ -1,6 +1,8 @@
+mod eval;
 mod parser;
 mod scanner;
 
+use crate::eval::Evaluate;
 use crate::parser::Parser;
 use crate::scanner::Token;
 use std::env;
@@ -76,6 +78,36 @@ fn main() {
                 exit(65)
             } else {
                 exit(0)
+            }
+        }
+        "eval" => {
+            let (tokens, _is_error_lexing) = tokenize(filename);
+
+            let parsed = Parser::new_parse(tokens);
+
+            let is_error_parsing = parsed.is_err();
+
+            if is_error_parsing {
+                writeln!(
+                    io::stderr(),
+                    "Error while parsing {}: {}",
+                    filename,
+                    parsed.unwrap_err()
+                )
+                .unwrap();
+                exit(65);
+            }
+
+            let ast = parsed.unwrap();
+
+            let result = ast.eval();
+
+            match result {
+                Ok(eval_result) => println!("{}", eval_result),
+                Err(e) => {
+                    writeln!(io::stderr(), "Error while evaluating {}: {}", filename, e).unwrap();
+                    exit(70);
+                }
             }
         }
         _ => {
