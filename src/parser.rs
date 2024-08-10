@@ -297,6 +297,6 @@ impl Display for Grouping {
 
 impl Display for Unary {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {}", self.operator, self.right)
+        write!(f, "{} {}", self.operator.lexeme, self.right)
     }
 }
