@@ -1,5 +1,5 @@
 use crate::parser::{Binary, Expr, Grouping, Literal, Unary};
-use crate::scanner::TokenKind;
+use crate::token::TokenKind;
 use anyhow::bail;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};

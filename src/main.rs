@@ -1,18 +1,20 @@
+mod consts;
+mod errors;
 mod eval;
 mod parser;
 mod scanner;
+mod token;
 
 use crate::eval::Evaluate;
 use crate::parser::Parser;
-use crate::scanner::Token;
+use crate::token::Token;
 use std::env;
 use std::fs;
-use std::io::{self, Write};
 use std::process::exit;
 
 fn tokenize(filename: &str) -> (Vec<Token>, bool) {
     let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
-        writeln!(io::stderr(), "Failed to read file {}", filename).unwrap();
+        eprintln!("Failed to read file {}", filename);
         String::new()
     });
 
@@ -23,7 +25,7 @@ fn tokenize(filename: &str) -> (Vec<Token>, bool) {
     let is_error = !scanner.errors.is_empty();
 
     for error in scanner.errors {
-        writeln!(io::stderr(), "{}", error).unwrap();
+        eprintln!("{}", error);
     }
 
     (tokens, is_error)
@@ -32,7 +34,7 @@ fn tokenize(filename: &str) -> (Vec<Token>, bool) {
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
-        writeln!(io::stderr(), "Usage: {} tokenize <filename>", args[0]).unwrap();
+        eprintln!("Usage: {} tokenize <filename>", args[0]);
         return;
     }
 
@@ -61,13 +63,7 @@ fn main() {
             let is_error_parsing = parsed.is_err();
 
             if is_error_parsing {
-                writeln!(
-                    io::stderr(),
-                    "Error while parsing {}: {}",
-                    filename,
-                    parsed.unwrap_err()
-                )
-                .unwrap();
+                eprintln!("Error while parsing {}: {}", filename, parsed.unwrap_err());
             } else {
                 let ast = parsed.unwrap();
 
@@ -88,13 +84,7 @@ fn main() {
             let is_error_parsing = parsed.is_err();
 
             if is_error_parsing {
-                writeln!(
-                    io::stderr(),
-                    "Error while parsing {}: {}",
-                    filename,
-                    parsed.unwrap_err()
-                )
-                .unwrap();
+                eprintln!("Error while parsing {}: {}", filename, parsed.unwrap_err());
                 exit(65);
             }
 
@@ -105,14 +95,13 @@ fn main() {
             match result {
                 Ok(eval_result) => println!("{}", eval_result),
                 Err(e) => {
-                    writeln!(io::stderr(), "Error while evaluating {}: {}", filename, e).unwrap();
+                    eprintln!("Error while evaluating {}: {}", filename, e);
                     exit(70);
                 }
             }
         }
         _ => {
-            writeln!(io::stderr(), "Unknown command: {}", command).unwrap();
-            return;
+            eprintln!("Unknown command: {}", command);
         }
     }
 }

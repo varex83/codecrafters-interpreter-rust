@@ -1,15 +1,10 @@
-#![allow(dead_code)]
-
+use crate::consts::RESERVED;
+use crate::token::{ident_to_reserved_word, Loc, Locate, Token, TokenKind};
 use std::fmt::{Display, Formatter};
-
-const RESERVED: [&'static str; 16] = [
-    "and", "class", "else", "false", "fun", "for", "if", "nil", "or", "print", "return", "super",
-    "this", "true", "var", "while",
-];
+use std::str::Chars;
 
 pub struct Scanner<'a> {
     buffer: Buffer<'a>,
-    line_number: u32,
     pub errors: Vec<ScannerError>,
 }
 
@@ -17,7 +12,6 @@ impl<'a> Scanner<'a> {
     pub fn new(source: &'a str) -> Self {
         Self {
             buffer: Buffer::new(source),
-            line_number: 1,
             errors: vec![],
         }
     }
@@ -53,65 +47,61 @@ impl<'a> Scanner<'a> {
                 c => {
                     self.buffer.advance();
                     match c {
-                        '(' => tokens.push(Token::new(TokenKind::LeftParen, "(".to_string())),
-                        ')' => tokens.push(Token::new(TokenKind::RightParen, ")".to_string())),
-                        '{' => tokens.push(Token::new(TokenKind::LeftBrace, "{".to_string())),
-                        '}' => tokens.push(Token::new(TokenKind::RightBrace, "}".to_string())),
-                        ',' => tokens.push(Token::new(TokenKind::Comma, ",".to_string())),
-                        '.' => tokens.push(Token::new(TokenKind::Dot, ".".to_string())),
-                        '-' => tokens.push(Token::new(TokenKind::Minus, "-".to_string())),
-                        '+' => tokens.push(Token::new(TokenKind::Plus, "+".to_string())),
-                        ';' => tokens.push(Token::new(TokenKind::Semicolon, ";".to_string())),
-                        '*' => tokens.push(Token::new(TokenKind::Star, "*".to_string())),
+                        '(' => tokens.push(Token::new(TokenKind::LeftParen, "(", self.loc())),
+                        ')' => tokens.push(Token::new(TokenKind::RightParen, ")", self.loc())),
+                        '{' => tokens.push(Token::new(TokenKind::LeftBrace, "{", self.loc())),
+                        '}' => tokens.push(Token::new(TokenKind::RightBrace, "}", self.loc())),
+                        ',' => tokens.push(Token::new(TokenKind::Comma, ",", self.loc())),
+                        '.' => tokens.push(Token::new(TokenKind::Dot, ".", self.loc())),
+                        '-' => tokens.push(Token::new(TokenKind::Minus, "-", self.loc())),
+                        '+' => tokens.push(Token::new(TokenKind::Plus, "+", self.loc())),
+                        ';' => tokens.push(Token::new(TokenKind::Semicolon, ";", self.loc())),
+                        '*' => tokens.push(Token::new(TokenKind::Star, "*", self.loc())),
                         '!' => {
                             if self.buffer.matches("=") {
-                                tokens.push(Token::new(TokenKind::BangEqual, "!=".to_string()));
+                                tokens.push(Token::new(TokenKind::BangEqual, "!=", self.loc()));
                                 self.buffer.advance();
                             } else {
-                                tokens.push(Token::new(TokenKind::Bang, "!".to_string()));
+                                tokens.push(Token::new(TokenKind::Bang, "!", self.loc()));
                             }
                         }
                         '=' => {
                             if self.buffer.matches("=") {
-                                tokens.push(Token::new(TokenKind::EqualEqual, "==".to_string()));
+                                tokens.push(Token::new(TokenKind::EqualEqual, "==", self.loc()));
                                 self.buffer.advance();
                             } else {
-                                tokens.push(Token::new(TokenKind::Equal, "=".to_string()));
+                                tokens.push(Token::new(TokenKind::Equal, "=", self.loc()));
                             }
                         }
                         '<' => {
                             if self.buffer.matches("=") {
-                                tokens.push(Token::new(TokenKind::LessEqual, "<=".to_string()));
+                                tokens.push(Token::new(TokenKind::LessEqual, "<=", self.loc()));
                                 self.buffer.advance();
                             } else {
-                                tokens.push(Token::new(TokenKind::Less, "<".to_string()));
+                                tokens.push(Token::new(TokenKind::Less, "<", self.loc()));
                             }
                         }
                         '>' => {
                             if self.buffer.matches("=") {
-                                tokens.push(Token::new(TokenKind::GreaterEqual, ">=".to_string()));
+                                tokens.push(Token::new(TokenKind::GreaterEqual, ">=", self.loc()));
                                 self.buffer.advance();
                             } else {
-                                tokens.push(Token::new(TokenKind::Greater, ">".to_string()));
+                                tokens.push(Token::new(TokenKind::Greater, ">", self.loc()));
                             }
                         }
                         '/' => {
                             if self.buffer.matches("/") {
                                 self.buffer.advance_while(|c| c != '\n');
                             } else {
-                                tokens.push(Token::new(TokenKind::Slash, "/".to_string()));
+                                tokens.push(Token::new(TokenKind::Slash, "/", self.loc()));
                             }
                         }
                         ch => {
-                            if ch == ' ' || ch == '\t' || ch == '\r' {
+                            if ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n' {
                                 continue;
-                            } else if ch == '\n' {
-                                self.line_number += 1;
                             } else {
                                 self.errors.push(ScannerError {
-                                    loc: Loc {
-                                        line: self.line_number,
-                                    },
+                                    loc: self.buffer.loc(),
                                     message: format!("Unexpected character: {}", ch),
                                 });
                             }
@@ -121,7 +111,7 @@ impl<'a> Scanner<'a> {
             }
         }
 
-        tokens.push(Token::new(TokenKind::EOF, "".to_string()));
+        tokens.push(Token::new(TokenKind::Eof, "", self.loc()));
 
         tokens
     }
@@ -141,14 +131,12 @@ impl<'a> Scanner<'a> {
 
         if !is_finished {
             self.errors.push(ScannerError {
-                loc: Loc {
-                    line: self.line_number,
-                },
+                loc: self.loc(),
                 message: "Unterminated string.".to_string(),
             });
             None
         } else {
-            Some(Token::new_str(str_literal_buffer))
+            Some(Token::new_str(str_literal_buffer, self.loc()))
         }
     }
 
@@ -188,7 +176,7 @@ impl<'a> Scanner<'a> {
             }
         }
 
-        Some(Token::new_num(lexeme, floating))
+        Some(Token::new_num(&lexeme, floating, self.loc()))
     }
 
     fn scan_ident_or_reserved(&mut self) -> Option<Token> {
@@ -206,311 +194,16 @@ impl<'a> Scanner<'a> {
 
         // Check for reserved words
         if RESERVED.contains(&lexeme.as_str()) {
-            return match lexeme.as_str() {
-                "and" => Some(Token::new(TokenKind::And, lexeme)),
-                "class" => Some(Token::new(TokenKind::Class, lexeme)),
-                "else" => Some(Token::new(TokenKind::Else, lexeme)),
-                "false" => Some(Token::new(TokenKind::False, lexeme)),
-                "fun" => Some(Token::new(TokenKind::Fun, lexeme)),
-                "for" => Some(Token::new(TokenKind::For, lexeme)),
-                "if" => Some(Token::new(TokenKind::If, lexeme)),
-                "nil" => Some(Token::new(TokenKind::Nil, lexeme)),
-                "or" => Some(Token::new(TokenKind::Or, lexeme)),
-                "print" => Some(Token::new(TokenKind::Print, lexeme)),
-                "return" => Some(Token::new(TokenKind::Return, lexeme)),
-                "super" => Some(Token::new(TokenKind::Super, lexeme)),
-                "this" => Some(Token::new(TokenKind::This, lexeme)),
-                "true" => Some(Token::new(TokenKind::True, lexeme)),
-                "var" => Some(Token::new(TokenKind::Var, lexeme)),
-                "while" => Some(Token::new(TokenKind::While, lexeme)),
-                c => panic!("Unknown reserved word: {}", c),
-            };
+            return Some(ident_to_reserved_word(&lexeme, self.loc()));
         }
 
-        Some(Token::new_ident(lexeme))
+        Some(Token::new_ident(lexeme, self.loc()))
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Token {
-    pub loc: Loc,
-    pub kind: TokenKind,
-    pub lexeme: String,
-    pub literal: Literal,
-}
-
-impl PartialEq for Token {
-    fn eq(&self, other: &Self) -> bool {
-        self.kind == other.kind
-    }
-}
-
-impl Token {
-    pub fn new(kind: TokenKind, lexeme: String) -> Self {
-        Self {
-            loc: Default::default(),
-            kind,
-            lexeme,
-            literal: Literal::none(),
-        }
-    }
-
-    pub fn new_str(lexeme: String) -> Self {
-        Self {
-            loc: Default::default(),
-            kind: TokenKind::String,
-            lexeme: format!("\"{}\"", lexeme),
-            literal: Literal::some(lexeme),
-        }
-    }
-
-    pub fn new_num(lexeme: String, floating: bool) -> Self {
-        let mut literal = lexeme.clone();
-
-        if floating {
-            while let Some(ch) = literal.pop() {
-                if ch != '0' {
-                    literal.push(ch);
-                    break;
-                }
-            }
-
-            if literal.ends_with('.') {
-                literal += "0";
-            }
-        } else {
-            literal += ".0";
-        }
-
-        Self {
-            loc: Default::default(),
-            kind: TokenKind::Number,
-            lexeme: lexeme.clone(),
-            literal: Literal::some(literal),
-        }
-    }
-
-    pub fn new_ident(lexeme: String) -> Self {
-        Self {
-            loc: Default::default(),
-            kind: TokenKind::Identifier,
-            lexeme,
-            literal: Literal::none(),
-        }
-    }
-}
-
-impl Display for Token {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {} {}", self.kind, self.lexeme, self.literal)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Literal(Option<String>);
-
-impl Literal {
-    pub fn none() -> Self {
-        Self(None)
-    }
-
-    pub fn some(value: String) -> Self {
-        Self(Some(value))
-    }
-}
-
-impl Display for Literal {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match &self.0 {
-            None => {
-                write!(f, "null")
-            }
-            Some(literal) => {
-                write!(f, "{}", literal)
-            }
-        }
-    }
-}
-
-#[derive(Debug, Default, Clone, PartialEq)]
-pub struct Loc {
-    pub line: u32,
-}
-
-impl Display for Loc {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "line {}", self.line)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum TokenKind {
-    LeftParen,
-    RightParen,
-    LeftBrace,
-    RightBrace,
-    Comma,
-    Dot,
-    Minus,
-    Plus,
-    Semicolon,
-    Slash,
-    Star,
-
-    Bang,
-    BangEqual,
-    Equal,
-    EqualEqual,
-    Greater,
-    GreaterEqual,
-    Less,
-    LessEqual,
-
-    Identifier,
-    String,
-    Number,
-
-    And,
-    Class,
-    Else,
-    False,
-    Fun,
-    For,
-    If,
-    Nil,
-    Or,
-    Print,
-    Return,
-    Super,
-    This,
-    True,
-    Var,
-    While,
-
-    EOF,
-}
-
-impl Display for TokenKind {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TokenKind::LeftParen => {
-                write!(f, "LEFT_PAREN")
-            }
-            TokenKind::RightParen => {
-                write!(f, "RIGHT_PAREN")
-            }
-            TokenKind::LeftBrace => {
-                write!(f, "LEFT_BRACE")
-            }
-            TokenKind::RightBrace => {
-                write!(f, "RIGHT_BRACE")
-            }
-            TokenKind::Comma => {
-                write!(f, "COMMA")
-            }
-            TokenKind::Dot => {
-                write!(f, "DOT")
-            }
-            TokenKind::Minus => {
-                write!(f, "MINUS")
-            }
-            TokenKind::Plus => {
-                write!(f, "PLUS")
-            }
-            TokenKind::Semicolon => {
-                write!(f, "SEMICOLON")
-            }
-            TokenKind::Slash => {
-                write!(f, "SLASH")
-            }
-            TokenKind::Star => {
-                write!(f, "STAR")
-            }
-            TokenKind::Bang => {
-                write!(f, "BANG")
-            }
-            TokenKind::BangEqual => {
-                write!(f, "BANG_EQUAL")
-            }
-            TokenKind::Equal => {
-                write!(f, "EQUAL")
-            }
-            TokenKind::EqualEqual => {
-                write!(f, "EQUAL_EQUAL")
-            }
-            TokenKind::Greater => {
-                write!(f, "GREATER")
-            }
-            TokenKind::GreaterEqual => {
-                write!(f, "GREATER_EQUAL")
-            }
-            TokenKind::Less => {
-                write!(f, "LESS")
-            }
-            TokenKind::LessEqual => {
-                write!(f, "LESS_EQUAL")
-            }
-            TokenKind::Identifier => {
-                write!(f, "IDENTIFIER")
-            }
-            TokenKind::String => {
-                write!(f, "STRING")
-            }
-            TokenKind::Number => {
-                write!(f, "NUMBER")
-            }
-            TokenKind::And => {
-                write!(f, "AND")
-            }
-            TokenKind::Class => {
-                write!(f, "CLASS")
-            }
-            TokenKind::Else => {
-                write!(f, "ELSE")
-            }
-            TokenKind::False => {
-                write!(f, "FALSE")
-            }
-            TokenKind::Fun => {
-                write!(f, "FUN")
-            }
-            TokenKind::For => {
-                write!(f, "FOR")
-            }
-            TokenKind::If => {
-                write!(f, "IF")
-            }
-            TokenKind::Nil => {
-                write!(f, "NIL")
-            }
-            TokenKind::Or => {
-                write!(f, "OR")
-            }
-            TokenKind::Print => {
-                write!(f, "PRINT")
-            }
-            TokenKind::Return => {
-                write!(f, "RETURN")
-            }
-            TokenKind::Super => {
-                write!(f, "SUPER")
-            }
-            TokenKind::This => {
-                write!(f, "THIS")
-            }
-            TokenKind::True => {
-                write!(f, "TRUE")
-            }
-            TokenKind::Var => {
-                write!(f, "VAR")
-            }
-            TokenKind::While => {
-                write!(f, "WHILE")
-            }
-            TokenKind::EOF => {
-                write!(f, "EOF")
-            }
-        }
+impl Locate for Scanner<'_> {
+    fn loc(&self) -> Loc {
+        self.buffer.loc()
     }
 }
 
@@ -521,25 +214,37 @@ pub struct ScannerError {
 }
 
 impl Display for ScannerError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "[{}] Error: {}", self.loc, self.message)
     }
 }
 
 pub struct Buffer<'a> {
     source: &'a str,
+    chars: Chars<'a>,
+    loc: Loc,
 }
 
 impl<'a> Buffer<'a> {
     pub fn new(source: &'a str) -> Self {
-        Self { source }
+        Self {
+            source,
+            chars: source.chars(),
+            loc: Default::default(),
+        }
     }
 
     pub fn advance(&mut self) -> Option<char> {
-        let elem = self.source.chars().next();
+        let elem = self.chars.next();
 
-        if elem.is_some() {
-            let elem_size = elem.unwrap().len_utf8();
+        if let Some(elem) = elem {
+            let elem_size = elem.len_utf8();
+
+            self.loc.move_forward();
+
+            if elem == '\n' {
+                self.loc.move_down();
+            }
 
             self.source = &self.source[elem_size..];
         }
@@ -552,15 +257,7 @@ impl<'a> Buffer<'a> {
     }
 
     pub fn matches(&self, expected: &str) -> bool {
-        if self.source.starts_with(expected) {
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn advance_n(&mut self, n: usize) {
-        self.source = &self.source[n..];
+        self.source.starts_with(expected)
     }
 
     pub fn advance_while<F>(&mut self, mut f: F)
@@ -578,5 +275,190 @@ impl<'a> Buffer<'a> {
 
     pub fn is_empty(&self) -> bool {
         self.source.is_empty()
+    }
+}
+
+impl Locate for Buffer<'_> {
+    fn loc(&self) -> Loc {
+        self.loc
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_addition() {
+        let source = "1 + 2 + 3";
+
+        let mut scanner = Scanner::new(source);
+        let tokens = scanner.scan_tokens();
+
+        assert_eq!(
+            tokens,
+            vec![
+                Token::new_num("1", false, Loc::new(1, 0)),
+                Token::new(TokenKind::Plus, "+", Loc::new(1, 2)),
+                Token::new_num("2", false, Loc::new(1, 4)),
+                Token::new(TokenKind::Plus, "+", Loc::new(1, 6)),
+                Token::new_num("3", false, Loc::new(1, 8)),
+                Token::new(TokenKind::Eof, "", Loc::new(1, 9)),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_addition_multiple_line() {
+        let source = r#"
+            1 + 2 + 3 ;
+            4 + 5 + 6
+        "#;
+
+        let mut scanner = Scanner::new(source);
+        let tokens = scanner.scan_tokens();
+
+        assert_eq!(
+            tokens,
+            vec![
+                Token::new_num("1", false, Loc::new(2, 12)),
+                Token::new(TokenKind::Plus, "+", Loc::new(2, 14)),
+                Token::new_num("2", false, Loc::new(2, 16)),
+                Token::new(TokenKind::Plus, "+", Loc::new(2, 18)),
+                Token::new_num("3", false, Loc::new(2, 20)),
+                Token::new(TokenKind::Semicolon, ";", Loc::new(2, 22)),
+                Token::new_num("4", false, Loc::new(3, 12)),
+                Token::new(TokenKind::Plus, "+", Loc::new(3, 14)),
+                Token::new_num("5", false, Loc::new(3, 16)),
+                Token::new(TokenKind::Plus, "+", Loc::new(3, 18)),
+                Token::new_num("6", false, Loc::new(3, 20)),
+                Token::new(TokenKind::Eof, "", Loc::new(3, 21)),
+            ]
+        )
+    }
+
+    #[test]
+    fn test_idents() {
+        let source = "var a = 10; var b = 20;";
+
+        let mut scanner = Scanner::new(source);
+        let tokens = scanner.scan_tokens();
+
+        assert_eq!(
+            tokens,
+            vec![
+                Token::new(TokenKind::Var, "var", Loc::new(1, 0)),
+                Token::new_ident("a".to_string(), Loc::new(1, 4)),
+                Token::new(TokenKind::Equal, "=", Loc::new(1, 6)),
+                Token::new_num("10", true, Loc::new(1, 8)),
+                Token::new(TokenKind::Semicolon, ";", Loc::new(1, 10)),
+                Token::new(TokenKind::Var, "var", Loc::new(1, 12)),
+                Token::new_ident("b".to_string(), Loc::new(1, 16)),
+                Token::new(TokenKind::Equal, "=", Loc::new(1, 18)),
+                Token::new_num("20", true, Loc::new(1, 20)),
+                Token::new(TokenKind::Semicolon, ";", Loc::new(1, 22)),
+                Token::new(TokenKind::Eof, "", Loc::new(1, 23)),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_with_comments() {
+        let source = r#"
+            // This is a comment
+            var a = 10; // This is another comment
+            var b = 20;
+        "#;
+
+        let mut scanner = Scanner::new(source);
+        let tokens = scanner.scan_tokens();
+
+        assert_eq!(
+            tokens,
+            vec![
+                Token::new(TokenKind::Var, "var", Loc::new(2, 12)),
+                Token::new_ident("a".to_string(), Loc::new(2, 16)),
+                Token::new(TokenKind::Equal, "=", Loc::new(2, 18)),
+                Token::new_num("10", true, Loc::new(2, 20)),
+                Token::new(TokenKind::Semicolon, ";", Loc::new(2, 22)),
+                Token::new(TokenKind::Var, "var", Loc::new(3, 12)),
+                Token::new_ident("b".to_string(), Loc::new(3, 16)),
+                Token::new(TokenKind::Equal, "=", Loc::new(3, 18)),
+                Token::new_num("20", true, Loc::new(3, 20)),
+                Token::new(TokenKind::Semicolon, ";", Loc::new(3, 22)),
+                Token::new(TokenKind::Eof, "", Loc::new(3, 23)),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_with_comments_utf_8() {
+        let source = r#"
+            // This is a comment
+            var a = 10; // This ƒ∂åß∂åß∂œ∑∂œ∑∂åß∂ comment
+            var b = 20;
+        "#;
+
+        let mut scanner = Scanner::new(source);
+        let tokens = scanner.scan_tokens();
+
+        assert_eq!(
+            tokens,
+            vec![
+                Token::new(TokenKind::Var, "var", Loc::new(2, 12)),
+                Token::new_ident("a".to_string(), Loc::new(2, 16)),
+                Token::new(TokenKind::Equal, "=", Loc::new(2, 18)),
+                Token::new_num("10", true, Loc::new(2, 20)),
+                Token::new(TokenKind::Semicolon, ";", Loc::new(2, 22)),
+                Token::new(TokenKind::Var, "var", Loc::new(3, 12)),
+                Token::new_ident("b".to_string(), Loc::new(3, 16)),
+                Token::new(TokenKind::Equal, "=", Loc::new(3, 18)),
+                Token::new_num("20", true, Loc::new(3, 20)),
+                Token::new(TokenKind::Semicolon, ";", Loc::new(3, 22)),
+                Token::new(TokenKind::Eof, "", Loc::new(3, 23)),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_zero_col() {
+        let source = "abc literal";
+
+        let mut scanner = Scanner::new(source);
+        let tokens = scanner.scan_tokens();
+
+        assert_eq!(
+            tokens,
+            vec![
+                Token::new_ident("abc".to_string(), Loc::new(1, 0)),
+                Token::new_ident("literal".to_string(), Loc::new(1, 4)),
+                Token::new(TokenKind::Eof, "", Loc::new(1, 11)),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_reserved_words() {
+        let source = RESERVED.join(", ");
+
+        let mut scanner = Scanner::new(&source);
+        let tokens = scanner.scan_tokens();
+
+        let mut expected = Vec::new();
+
+        let mut loc = Loc::new(1, 0);
+
+        for word in RESERVED.iter() {
+            expected.push(ident_to_reserved_word(word, loc));
+            loc.col += word.len() as u32;
+
+            expected.push(Token::new(TokenKind::Comma, ",", loc));
+            loc.col += 2;
+        }
+
+        expected.pop();
+        expected.push(Token::new(TokenKind::Eof, "", loc));
+
+        assert_eq!(tokens, expected);
     }
 }

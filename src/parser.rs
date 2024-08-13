@@ -10,11 +10,11 @@
 // | "(" expression ")" ;
 //
 
-use crate::scanner::{Token, TokenKind};
+use crate::token::{Loc, Locate, Token, TokenKind};
 use anyhow::bail;
 use std::fmt::{Display, Formatter};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expr {
     Literal(Literal),
     Binary(Binary),
@@ -22,13 +22,30 @@ pub enum Expr {
     Unary(Unary),
 }
 
-#[derive(Debug)]
+impl Locate for Expr {
+    fn loc(&self) -> Loc {
+        match self {
+            Expr::Literal(literal) => literal.loc(),
+            Expr::Binary(binary) => binary.loc(),
+            Expr::Grouping(grouping) => grouping.loc(),
+            Expr::Unary(unary) => unary.loc(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Literal {
     Number(Token),
     String(Token),
     True(Token),
     False(Token),
     Nil(Token),
+}
+
+impl Locate for Literal {
+    fn loc(&self) -> Loc {
+        self.reduce_to_token().loc()
+    }
 }
 
 impl Literal {
@@ -44,31 +61,50 @@ impl Literal {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Grouping {
     pub expr: Box<Expr>,
 }
 
-#[derive(Debug)]
+impl Locate for Grouping {
+    fn loc(&self) -> Loc {
+        self.expr.loc()
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Unary {
     pub operator: Token,
     pub right: Box<Expr>,
 }
 
-#[derive(Debug)]
+impl Locate for Unary {
+    fn loc(&self) -> Loc {
+        self.operator.loc()
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Binary {
     pub left: Box<Expr>,
     pub operator: Token,
     pub right: Box<Expr>,
 }
 
-#[derive(Debug)]
+impl Locate for Binary {
+    fn loc(&self) -> Loc {
+        self.operator.loc()
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Parser {
     tokens: Vec<Token>,
     cursor: usize,
 }
 
 type ParserResult = anyhow::Result<Expr>;
+type StmtResult = anyhow::Result<Vec<Expr>>;
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
@@ -78,11 +114,33 @@ impl Parser {
     pub fn new_parse(tokens: Vec<Token>) -> ParserResult {
         let mut parser = Self::new(tokens);
 
-        parser.parse()
+        let expr = parser.parse()?.clone();
+
+        Ok(expr.first().unwrap().clone())
     }
 
-    pub fn parse(&mut self) -> ParserResult {
-        self.expr()
+    pub fn parse(&mut self) -> StmtResult {
+        let mut stmts = vec![];
+
+        while !self.is_at_end() && self.peek().map(|e| e.kind) != Some(TokenKind::Eof) {
+            stmts.push(self.parse_stmt()?);
+        }
+
+        Ok(stmts)
+    }
+
+    pub fn parse_stmt(&mut self) -> ParserResult {
+        let expr = self.expr()?;
+
+        let token = self.peek().unwrap();
+
+        if token.kind != TokenKind::Semicolon {
+            bail!("expected \";\" at {}, got: {:?}", token.loc(), token.lexeme)
+        } else {
+            self.advance();
+        }
+
+        Ok(expr)
     }
 
     fn expr(&mut self) -> ParserResult {
@@ -202,7 +260,7 @@ impl Parser {
 
                 let result = self.expr()?;
                 if self.peek().unwrap().kind != TokenKind::RightParen {
-                    bail!("unclosed parenthesis at {}", token.loc)
+                    bail!("unclosed parenthesis at {}", token.loc())
                 } else {
                     self.advance();
                 }
@@ -211,7 +269,7 @@ impl Parser {
                     expr: Box::new(result),
                 }))
             }
-            _ => bail!("unexpected token <{}> at {}", token.kind, token.loc),
+            _ => bail!("unexpected token <{}> at {}", token.kind, token.loc()),
         }
     }
 }
@@ -276,7 +334,7 @@ impl Display for Literal {
                     format!("{}", token.literal)
                 }
                 Literal::True(_) | Literal::False(_) | Literal::Nil(_) => {
-                    format!("{}", token.lexeme)
+                    token.lexeme
                 }
             }
         )
