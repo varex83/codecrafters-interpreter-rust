@@ -18,6 +18,8 @@ fn tokenize(filename: &str) -> (Vec<Token>, bool) {
         String::new()
     });
 
+    let error_handler = errors::ErrorHandler::new(&file_contents);
+
     let mut scanner = scanner::Scanner::new(&file_contents);
 
     let tokens = scanner.scan_tokens();
@@ -25,7 +27,7 @@ fn tokenize(filename: &str) -> (Vec<Token>, bool) {
     let is_error = !scanner.errors.is_empty();
 
     for error in scanner.errors {
-        eprintln!("{}", error);
+        error_handler.print_error(&error, error.loc);
     }
 
     (tokens, is_error)
