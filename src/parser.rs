@@ -572,10 +572,10 @@ mod tests {
             Token::new(TokenKind::Eof, "", Loc::new(1, 9)),
         ];
 
-        let mut parser = Parser::new_parse(tokens).unwrap();
+        let stmts = Parser::new_parse(tokens).unwrap().stmts;
 
         assert_eq!(
-            parser,
+            stmts,
             vec![Stmt::Print(Print {
                 print_token: Token::new(TokenKind::Print, "print", Loc::new(1, 1)),
                 expr: Box::new(Expr::Literal(Literal::Number(Token::new(
