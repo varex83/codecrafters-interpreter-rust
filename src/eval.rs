@@ -1,4 +1,4 @@
-use crate::parser::{Binary, Expr, Grouping, Literal, Unary};
+use crate::parser::{Binary, Block, Expr, Grouping, If, Literal, Print, Program, Stmt, Unary};
 use crate::token::TokenKind;
 use anyhow::bail;
 use std::cmp::Ordering;
@@ -168,7 +168,8 @@ impl Evaluate for Binary {
 
                 match res {
                     Some(Ordering::Greater) => Ok(EvalResult::Bool(true)),
-                    _ => bail!(
+                    Some(Ordering::Less) | Some(Ordering::Equal) => Ok(EvalResult::Bool(false)),
+                    None => bail!(
                         "RUNTIME_ERR: Invalid comparison between {:?} and {:?}",
                         left,
                         right
@@ -180,7 +181,8 @@ impl Evaluate for Binary {
 
                 match res {
                     Some(Ordering::Greater) | Some(Ordering::Equal) => Ok(EvalResult::Bool(true)),
-                    _ => bail!(
+                    Some(Ordering::Less) => Ok(EvalResult::Bool(false)),
+                    None => bail!(
                         "RUNTIME_ERR: Invalid comparison between {:?} and {:?}",
                         left,
                         right
@@ -192,7 +194,8 @@ impl Evaluate for Binary {
 
                 match res {
                     Some(Ordering::Less) => Ok(EvalResult::Bool(true)),
-                    _ => bail!(
+                    Some(Ordering::Greater) | Some(Ordering::Equal) => Ok(EvalResult::Bool(false)),
+                    None => bail!(
                         "RUNTIME_ERR: Invalid comparison between {:?} and {:?}",
                         left,
                         right
@@ -204,7 +207,8 @@ impl Evaluate for Binary {
 
                 match res {
                     Some(Ordering::Less) | Some(Ordering::Equal) => Ok(EvalResult::Bool(true)),
-                    _ => bail!(
+                    Some(Ordering::Greater) => Ok(EvalResult::Bool(false)),
+                    None => bail!(
                         "RUNTIME_ERR: Invalid comparison between {:?} and {:?}",
                         left,
                         right
@@ -232,5 +236,73 @@ impl Evaluate for Unary {
 impl Evaluate for Grouping {
     fn eval(&self) -> EvalRuntimeResult {
         self.expr.eval()
+    }
+}
+
+impl Evaluate for Stmt {
+    fn eval(&self) -> EvalRuntimeResult {
+        match self {
+            Stmt::Expr(expr) => expr.eval(),
+            Stmt::Print(print) => print.eval(),
+            Stmt::If(if_stmt) => if_stmt.eval(),
+            Stmt::Block(block) => block.eval(),
+        }
+    }
+}
+
+impl Evaluate for Print {
+    fn eval(&self) -> EvalRuntimeResult {
+        let value = self.expr.eval()?;
+        println!("{}", value);
+        Ok(EvalResult::Nil)
+    }
+}
+
+impl Evaluate for If {
+    fn eval(&self) -> EvalRuntimeResult {
+        let condition = self.condition.eval()?;
+        match condition {
+            EvalResult::Bool(true) => {
+                self.then_branch.eval()?;
+            }
+            EvalResult::Bool(false) | EvalResult::Nil => {
+                if let Some(else_branch) = &self.else_branch {
+                    else_branch.eval()?;
+                }
+            }
+            _ => bail!("RUNTIME_ERR: Invalid condition {:?}", condition),
+        };
+
+        Ok(EvalResult::Nil)
+    }
+}
+
+impl Evaluate for Option<Stmt> {
+    fn eval(&self) -> EvalRuntimeResult {
+        match self {
+            Some(stmt) => stmt.eval(),
+            None => Ok(EvalResult::Nil),
+        }
+    }
+}
+
+impl Evaluate for Block {
+    fn eval(&self) -> EvalRuntimeResult {
+        self.stmts.eval()
+    }
+}
+
+impl Evaluate for Vec<Stmt> {
+    fn eval(&self) -> EvalRuntimeResult {
+        for stmt in self {
+            stmt.eval()?;
+        }
+        Ok(EvalResult::Nil)
+    }
+}
+
+impl Evaluate for Program {
+    fn eval(&self) -> EvalRuntimeResult {
+        self.stmts.eval()
     }
 }

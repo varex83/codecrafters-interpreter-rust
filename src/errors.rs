@@ -1,6 +1,18 @@
 use crate::token::Loc;
 use colored::*;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
+
+#[derive(Debug)]
+pub struct LocalizedError {
+    pub loc: Loc,
+    pub message: String,
+}
+
+impl Display for LocalizedError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[{}] Error: {}", self.loc, self.message)
+    }
+}
 
 pub struct ErrorHandler {
     pub lines: Vec<String>,

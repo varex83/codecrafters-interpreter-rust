@@ -69,7 +69,7 @@ fn main() {
             } else {
                 let ast = parsed.unwrap();
 
-                println!("{}", ast);
+                println!("{:?}", ast);
             }
 
             if is_error_lexing || is_error_parsing {
@@ -95,7 +95,9 @@ fn main() {
             let result = ast.eval();
 
             match result {
-                Ok(eval_result) => println!("{}", eval_result),
+                Ok(eval_result) => {
+                    println!("{:?}", eval_result);
+                }
                 Err(e) => {
                     eprintln!("Error while evaluating {}: {}", filename, e);
                     exit(70);

@@ -1,11 +1,11 @@
 use crate::consts::RESERVED;
+use crate::errors::LocalizedError;
 use crate::token::{ident_to_reserved_word, Loc, Locate, Token, TokenKind};
-use std::fmt::{Display, Formatter};
 use std::str::Chars;
 
 pub struct Scanner<'a> {
     buffer: Buffer<'a>,
-    pub errors: Vec<ScannerError>,
+    pub errors: Vec<LocalizedError>,
 }
 
 impl<'a> Scanner<'a> {
@@ -100,7 +100,7 @@ impl<'a> Scanner<'a> {
                             if ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n' {
                                 continue;
                             } else {
-                                self.errors.push(ScannerError {
+                                self.errors.push(LocalizedError {
                                     loc: self.buffer.loc(),
                                     message: format!("Unexpected character: {}", ch),
                                 });
@@ -130,7 +130,7 @@ impl<'a> Scanner<'a> {
         }
 
         if !is_finished {
-            self.errors.push(ScannerError {
+            self.errors.push(LocalizedError {
                 loc: self.loc(),
                 message: "Unterminated string.".to_string(),
             });
@@ -204,18 +204,6 @@ impl<'a> Scanner<'a> {
 impl Locate for Scanner<'_> {
     fn loc(&self) -> Loc {
         self.buffer.loc()
-    }
-}
-
-#[derive(Debug)]
-pub struct ScannerError {
-    pub loc: Loc,
-    pub message: String,
-}
-
-impl Display for ScannerError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[{}] Error: {}", self.loc, self.message)
     }
 }
 

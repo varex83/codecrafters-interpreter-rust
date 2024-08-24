@@ -1,4 +1,5 @@
 program        -> statement* EOF ;
+block         -> "{" statement* "}" ;
 statement      -> exprStmt | printStmt ;
 exprStmt       -> expression ";" ;
 printStmt      -> "print" expression ";" ;
