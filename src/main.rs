@@ -3,6 +3,7 @@ mod errors;
 mod eval;
 mod parser;
 mod scanner;
+mod state;
 mod token;
 
 use crate::eval::Evaluate;
@@ -92,7 +93,9 @@ fn main() {
 
             let ast = parsed.unwrap();
 
-            let result = ast.eval();
+            let mut state = state::State::new();
+
+            let result = ast.eval(&mut state);
 
             match result {
                 Ok(eval_result) => {

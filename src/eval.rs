@@ -1,4 +1,5 @@
 use crate::parser::{Binary, Block, Expr, Grouping, If, Literal, Print, Program, Stmt, Unary};
+use crate::state::State;
 use crate::token::TokenKind;
 use anyhow::bail;
 use std::cmp::Ordering;
@@ -117,27 +118,27 @@ impl Neg for EvalResult {
 }
 
 pub trait Evaluate {
-    fn eval(&self) -> EvalRuntimeResult;
+    fn eval(&self, state: &mut State) -> EvalRuntimeResult;
 }
 
 impl Evaluate for Expr {
-    fn eval(&self) -> EvalRuntimeResult {
+    fn eval(&self, state: &mut State) -> EvalRuntimeResult {
         match self {
-            Expr::Literal(literal) => literal.eval(),
-            Expr::Binary(binary) => binary.eval(),
-            Expr::Grouping(grouping) => grouping.eval(),
-            Expr::Unary(unary) => unary.eval(),
+            Expr::Literal(literal) => literal.eval(state),
+            Expr::Binary(binary) => binary.eval(state),
+            Expr::Grouping(grouping) => grouping.eval(state),
+            Expr::Unary(unary) => unary.eval(state),
         }
     }
 }
 
 impl Evaluate for Literal {
-    fn eval(&self) -> EvalRuntimeResult {
+    fn eval(&self, _state: &mut State) -> EvalRuntimeResult {
         Ok(match self {
             Literal::Number(number) => EvalResult::Number({
                 let literal = number.literal.to_string();
 
-                literal.parse::<f32>().unwrap()
+                literal.parse::<f32>()?
             }),
             Literal::String(string) => EvalResult::String(string.literal.to_string()),
             Literal::True(_) => EvalResult::Bool(true),
@@ -148,15 +149,15 @@ impl Evaluate for Literal {
 }
 
 impl Evaluate for bool {
-    fn eval(&self) -> EvalRuntimeResult {
+    fn eval(&self, _state: &mut State) -> EvalRuntimeResult {
         Ok(EvalResult::Bool(*self))
     }
 }
 
 impl Evaluate for Binary {
-    fn eval(&self) -> EvalRuntimeResult {
-        let left = self.left.eval()?;
-        let right = self.right.eval()?;
+    fn eval(&self, state: &mut State) -> EvalRuntimeResult {
+        let left = self.left.eval(state)?;
+        let right = self.right.eval(state)?;
 
         match self.operator.kind {
             TokenKind::Plus => left + right,
@@ -215,16 +216,16 @@ impl Evaluate for Binary {
                     ),
                 }
             }
-            TokenKind::EqualEqual => (left == right).eval(),
-            TokenKind::BangEqual => (left != right).eval(),
+            TokenKind::EqualEqual => (left == right).eval(state),
+            TokenKind::BangEqual => (left != right).eval(state),
             _ => bail!("RUNTIME_ERR: Invalid binary operator {:?}", self.operator),
         }
     }
 }
 
 impl Evaluate for Unary {
-    fn eval(&self) -> EvalRuntimeResult {
-        let right = self.right.eval()?;
+    fn eval(&self, state: &mut State) -> EvalRuntimeResult {
+        let right = self.right.eval(state)?;
         match self.operator.kind {
             TokenKind::Minus => -right,
             TokenKind::Bang => !right,
@@ -234,40 +235,40 @@ impl Evaluate for Unary {
 }
 
 impl Evaluate for Grouping {
-    fn eval(&self) -> EvalRuntimeResult {
-        self.expr.eval()
+    fn eval(&self, state: &mut State) -> EvalRuntimeResult {
+        self.expr.eval(state)
     }
 }
 
 impl Evaluate for Stmt {
-    fn eval(&self) -> EvalRuntimeResult {
+    fn eval(&self, state: &mut State) -> EvalRuntimeResult {
         match self {
-            Stmt::Expr(expr) => expr.eval(),
-            Stmt::Print(print) => print.eval(),
-            Stmt::If(if_stmt) => if_stmt.eval(),
-            Stmt::Block(block) => block.eval(),
+            Stmt::Expr(expr) => expr.eval(state),
+            Stmt::Print(print) => print.eval(state),
+            Stmt::If(if_stmt) => if_stmt.eval(state),
+            Stmt::Block(block) => block.eval(state),
         }
     }
 }
 
 impl Evaluate for Print {
-    fn eval(&self) -> EvalRuntimeResult {
-        let value = self.expr.eval()?;
+    fn eval(&self, state: &mut State) -> EvalRuntimeResult {
+        let value = self.expr.eval(state)?;
         println!("{}", value);
         Ok(EvalResult::Nil)
     }
 }
 
 impl Evaluate for If {
-    fn eval(&self) -> EvalRuntimeResult {
-        let condition = self.condition.eval()?;
+    fn eval(&self, state: &mut State) -> EvalRuntimeResult {
+        let condition = self.condition.eval(state)?;
         match condition {
             EvalResult::Bool(true) => {
-                self.then_branch.eval()?;
+                self.then_branch.eval(state)?;
             }
             EvalResult::Bool(false) | EvalResult::Nil => {
                 if let Some(else_branch) = &self.else_branch {
-                    else_branch.eval()?;
+                    else_branch.eval(state)?;
                 }
             }
             _ => bail!("RUNTIME_ERR: Invalid condition {:?}", condition),
@@ -278,31 +279,31 @@ impl Evaluate for If {
 }
 
 impl Evaluate for Option<Stmt> {
-    fn eval(&self) -> EvalRuntimeResult {
+    fn eval(&self, state: &mut State) -> EvalRuntimeResult {
         match self {
-            Some(stmt) => stmt.eval(),
+            Some(stmt) => stmt.eval(state),
             None => Ok(EvalResult::Nil),
         }
     }
 }
 
 impl Evaluate for Block {
-    fn eval(&self) -> EvalRuntimeResult {
-        self.stmts.eval()
+    fn eval(&self, state: &mut State) -> EvalRuntimeResult {
+        self.stmts.eval(state)
     }
 }
 
 impl Evaluate for Vec<Stmt> {
-    fn eval(&self) -> EvalRuntimeResult {
+    fn eval(&self, state: &mut State) -> EvalRuntimeResult {
         for stmt in self {
-            stmt.eval()?;
+            stmt.eval(state)?;
         }
         Ok(EvalResult::Nil)
     }
 }
 
 impl Evaluate for Program {
-    fn eval(&self) -> EvalRuntimeResult {
-        self.stmts.eval()
+    fn eval(&self, state: &mut State) -> EvalRuntimeResult {
+        self.stmts.eval(state)
     }
 }
