@@ -1,185 +1,10 @@
+use crate::structures::{
+    Assign, Binary, Block, Declaration, Expr, Grouping, If, Literal, Print, Program, Stmt, Unary,
+};
 use crate::token::{Loc, Locate, Token, TokenKind};
-use anyhow::bail;
 use anyhow::Result;
+use anyhow::{anyhow, bail};
 use std::fmt::{Display, Formatter};
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Stmt {
-    Expr(Expr),
-    Block(Block),
-    Print(Print),
-    If(If),
-}
-
-impl Locate for Stmt {
-    fn loc(&self) -> Loc {
-        match self {
-            Stmt::Expr(expr) => expr.loc(),
-            Stmt::Print(print) => print.loc(),
-            Stmt::If(if_stmt) => if_stmt.loc(),
-            Stmt::Block(block) => block.loc(),
-        }
-    }
-}
-
-impl Display for Stmt {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Stmt::Expr(expr) => write!(f, "{};", expr),
-            Stmt::Print(print) => write!(f, "print {};", print.expr),
-            Stmt::If(if_stmt) => write!(f, "{}", if_stmt),
-            Stmt::Block(block_stmt) => write!(f, "{}", block_stmt),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Print {
-    pub print_token: Token,
-    pub expr: Box<Expr>,
-}
-
-impl Locate for Print {
-    fn loc(&self) -> Loc {
-        self.expr.loc()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct If {
-    pub if_token: Token,
-    pub condition: Box<Expr>,
-    pub then_branch: Block,
-    pub else_branch: Option<Block>,
-}
-
-impl Locate for If {
-    fn loc(&self) -> Loc {
-        self.if_token.loc()
-    }
-}
-
-impl Display for If {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if let Some(ref else_br) = self.else_branch {
-            write!(
-                f,
-                "if {} then {:?} else {:?}",
-                self.condition, self.then_branch, else_br,
-            )
-        } else {
-            write!(f, "if {} then {:?}", self.condition, self.then_branch)
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Expr {
-    Literal(Literal),
-    Binary(Binary),
-    Grouping(Grouping),
-    Unary(Unary),
-}
-
-impl Locate for Expr {
-    fn loc(&self) -> Loc {
-        match self {
-            Expr::Literal(literal) => literal.loc(),
-            Expr::Binary(binary) => binary.loc(),
-            Expr::Grouping(grouping) => grouping.loc(),
-            Expr::Unary(unary) => unary.loc(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Literal {
-    Number(Token),
-    String(Token),
-    True(Token),
-    False(Token),
-    Nil(Token),
-    Ident(Token),
-}
-
-impl Locate for Literal {
-    fn loc(&self) -> Loc {
-        self.reduce_to_token().loc()
-    }
-}
-
-impl Literal {
-    pub fn reduce_to_token(&self) -> Token {
-        match self {
-            Literal::Number(t) => t,
-            Literal::String(t) => t,
-            Literal::True(t) => t,
-            Literal::False(t) => t,
-            Literal::Nil(t) => t,
-            Literal::Ident(t) => t,
-        }
-            .clone()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Grouping {
-    pub expr: Box<Expr>,
-}
-
-impl Locate for Grouping {
-    fn loc(&self) -> Loc {
-        self.expr.loc()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Unary {
-    pub operator: Token,
-    pub right: Box<Expr>,
-}
-
-impl Locate for Unary {
-    fn loc(&self) -> Loc {
-        self.operator.loc()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Binary {
-    pub left: Box<Expr>,
-    pub operator: Token,
-    pub right: Box<Expr>,
-}
-
-impl Locate for Binary {
-    fn loc(&self) -> Loc {
-        self.operator.loc()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct Block {
-    pub stmts: Vec<Stmt>,
-    pub left_brace: Token,
-    pub right_brace: Token,
-}
-
-impl Locate for Block {
-    fn loc(&self) -> Loc {
-        self.left_brace.loc()
-    }
-}
-
-impl Display for Block {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{{")?;
-        for stmt in &self.stmts {
-            write!(f, "{}", stmt)?;
-        }
-        write!(f, "}}")
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct Parser {
@@ -191,11 +16,6 @@ type ParserResult = Result<Expr>;
 type StmtResult = Result<Stmt>;
 type StmtVecResult = Result<Vec<Stmt>>;
 type ProgramResult = Result<Program>;
-
-#[derive(Debug, Clone)]
-pub struct Program {
-    pub stmts: Vec<Stmt>,
-}
 
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
@@ -277,15 +97,79 @@ impl Parser {
     }
 
     fn stmt(&mut self) -> StmtResult {
-        if self.peek_tokens(&[TokenKind::Print]).is_some() {
-            Ok(Stmt::Print(self.print_stmt()?))
-        } else if let Some(_) = self.peek_tokens(&[TokenKind::If]) {
-            Ok(Stmt::If(self.if_stmt()?))
-        } else if let Some(_) = self.peek_tokens(&[TokenKind::LeftBrace]) {
-            Ok(Stmt::Block(self.parse_block()?))
+        Ok(if self.peek_tokens(&[TokenKind::Print]).is_some() {
+            Stmt::Print(self.print_stmt()?)
+        } else if self.peek_tokens(&[TokenKind::If]).is_some() {
+            Stmt::If(self.if_stmt()?)
+        } else if self.peek_tokens(&[TokenKind::LeftBrace]).is_some() {
+            Stmt::Block(self.parse_block()?)
+        } else if self.peek_tokens(&[TokenKind::Var]).is_some() {
+            Stmt::Declaration(self.declare_stmt()?)
+        } else if self.peek_token_sequence(&[TokenKind::Identifier, TokenKind::Equal]) {
+            Stmt::Assign(self.assign_stmt()?)
         } else {
-            self.expr_stmt()
+            self.expr_stmt()?
+        })
+    }
+
+    fn declare_stmt(&mut self) -> Result<Declaration> {
+        let var_token = self
+            .match_tokens(&[TokenKind::Var])
+            .ok_or(anyhow!("expected \"var\" got nothing at {}", self.loc()))?;
+
+        let name = self.match_tokens(&[TokenKind::Identifier]).ok_or(anyhow!(
+            "expected IDENT at {}, got {}",
+            self.loc(),
+            self.peek_token_kind_or_eof()
+        ))?;
+
+        let decl = if let Some(eq_token) = self.match_tokens(&[TokenKind::Equal]) {
+            let rhs = self.expr()?;
+
+            Declaration::new(var_token, name, Some(eq_token), Some(rhs))
+        } else {
+            Declaration::new_var(name)
+        };
+
+        if !self.match_tokens(&[TokenKind::Semicolon]).is_some() {
+            bail!(
+                "expected \";\" at {}, got {}",
+                self.loc(),
+                self.peek_token_kind_or_eof()
+            )
         }
+
+        Ok(decl)
+    }
+
+    fn assign_stmt(&mut self) -> Result<Assign> {
+        let name = self.match_tokens(&[TokenKind::Identifier]).ok_or(anyhow!(
+            "expected IDENT at {}, got {}",
+            self.loc(),
+            self.peek_token_kind_or_eof()
+        ))?;
+
+        let assign_token = self.match_tokens(&[TokenKind::Equal]).ok_or(anyhow!(
+            "expected \"=\" at {}, got {}",
+            self.loc(),
+            self.peek_token_kind_or_eof()
+        ))?;
+
+        let value = self.expr()?;
+
+        if !self.match_tokens(&[TokenKind::Semicolon]).is_some() {
+            bail!(
+                "expected \";\" at {}, got {}",
+                self.loc(),
+                self.peek_token_kind_or_eof()
+            )
+        }
+
+        Ok(Assign {
+            name,
+            assign_token,
+            value,
+        })
     }
 
     pub fn print_stmt(&mut self) -> Result<Print> {
@@ -470,6 +354,26 @@ impl Parser {
         self.tokens.get(self.cursor).cloned()
     }
 
+    pub fn peek_token_kind_or_eof(&self) -> TokenKind {
+        self.peek().map_or(TokenKind::Eof, |x| x.kind)
+    }
+
+    pub fn peek_token_sequence(&mut self, tokens: &[TokenKind]) -> bool {
+        for (i, token) in tokens.iter().enumerate() {
+            if self
+                .tokens
+                .get(self.cursor + i)
+                .map_or(false, |x| x.kind == *token)
+            {
+                continue;
+            } else {
+                return false;
+            }
+        }
+
+        true
+    }
+
     pub fn advance(&mut self) -> Option<Token> {
         if self.is_at_end() {
             None
@@ -493,6 +397,20 @@ impl Parser {
             self.peek()
         } else {
             None
+        }
+    }
+
+    pub fn peek_prev(&self) -> Option<Token> {
+        self.tokens.get(self.cursor - 1).cloned()
+    }
+}
+
+impl Locate for Parser {
+    fn loc(&self) -> Loc {
+        if self.is_at_end() {
+            self.peek_prev().unwrap().loc()
+        } else {
+            self.peek().unwrap().loc()
         }
     }
 }

@@ -4,6 +4,7 @@ mod eval;
 mod parser;
 mod scanner;
 mod state;
+mod structures;
 mod token;
 
 use crate::eval::Evaluate;
@@ -70,7 +71,7 @@ fn main() {
             } else {
                 let ast = parsed.unwrap();
 
-                println!("{:?}", ast);
+                println!("{:#?}", ast);
             }
 
             if is_error_lexing || is_error_parsing {

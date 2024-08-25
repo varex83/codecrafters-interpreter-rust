@@ -1,5 +1,7 @@
-use crate::parser::{Binary, Block, Expr, Grouping, If, Literal, Print, Program, Stmt, Unary};
 use crate::state::State;
+use crate::structures::{
+    Assign, Binary, Block, Declaration, Expr, Grouping, If, Literal, Print, Program, Stmt, Unary,
+};
 use crate::token::TokenKind;
 use anyhow::bail;
 use std::cmp::Ordering;
@@ -254,7 +256,30 @@ impl Evaluate for Stmt {
             Stmt::Print(print) => print.eval(state),
             Stmt::If(if_stmt) => if_stmt.eval(state),
             Stmt::Block(block) => block.eval(state),
+            Stmt::Declaration(decl) => decl.eval(state),
+            Stmt::Assign(assign) => assign.eval(state),
         }
+    }
+}
+
+impl Evaluate for Declaration {
+    fn eval(&self, state: &mut State) -> EvalRuntimeResult {
+        let value = self
+            .initializer
+            .as_ref()
+            .map_or(Ok(EvalResult::Nil), |x| x.eval(state))?;
+        state.set(&self.name.lexeme, value.clone());
+        Ok(value)
+    }
+}
+
+impl Evaluate for Assign {
+    fn eval(&self, state: &mut State) -> EvalRuntimeResult {
+        let value = self.value.eval(state)?;
+
+        state.set(&self.name.lexeme, value.clone());
+
+        Ok(value)
     }
 }
 
