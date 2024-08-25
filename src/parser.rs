@@ -131,7 +131,7 @@ impl Parser {
             Declaration::new_var(name)
         };
 
-        if !self.match_tokens(&[TokenKind::Semicolon]).is_some() {
+        if self.match_tokens(&[TokenKind::Semicolon]).is_none() {
             bail!(
                 "expected \";\" at {}, got {}",
                 self.loc(),
@@ -143,6 +143,20 @@ impl Parser {
     }
 
     fn assign_stmt(&mut self) -> Result<Assign> {
+        let assign = self.assign_expr()?;
+
+        if self.match_tokens(&[TokenKind::Semicolon]).is_none() {
+            bail!(
+                "expected \";\" at {}, got {}",
+                self.loc(),
+                self.peek_token_kind_or_eof()
+            )
+        }
+
+        Ok(assign)
+    }
+
+    fn assign_expr(&mut self) -> Result<Assign> {
         let name = self.match_tokens(&[TokenKind::Identifier]).ok_or(anyhow!(
             "expected IDENT at {}, got {}",
             self.loc(),
@@ -156,14 +170,6 @@ impl Parser {
         ))?;
 
         let value = self.expr()?;
-
-        if !self.match_tokens(&[TokenKind::Semicolon]).is_some() {
-            bail!(
-                "expected \";\" at {}, got {}",
-                self.loc(),
-                self.peek_token_kind_or_eof()
-            )
-        }
 
         Ok(Assign {
             name,
@@ -300,7 +306,7 @@ impl Parser {
         // todo: handle error
         let token = self.peek().unwrap();
 
-        match token.kind.clone() {
+        match token.kind {
             TokenKind::Number => {
                 self.advance();
                 Ok(Expr::Literal(Literal::Number(token)))
@@ -449,7 +455,7 @@ impl Display for Literal {
                     token.lexeme
                 }
                 Literal::Ident(_) => {
-                    format!("{}", token.lexeme)
+                    token.lexeme.to_string()
                 }
             }
         )

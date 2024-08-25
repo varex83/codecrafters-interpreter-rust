@@ -1,4 +1,5 @@
 use crate::eval::EvalResult;
+use anyhow::bail;
 use std::collections::HashMap;
 
 pub struct State {
@@ -16,7 +17,23 @@ impl State {
         self.variables.get(name)
     }
 
-    pub fn set(&mut self, name: &str, value: EvalResult) {
+    pub fn declare(&mut self, name: &str, value: EvalResult) -> anyhow::Result<()> {
+        if self.variables.contains_key(name) {
+            bail!("RUNTIME_ERR: Variable {} is already declared", name);
+        }
+
         self.variables.insert(name.to_string(), value);
+
+        Ok(())
+    }
+
+    pub fn assign(&mut self, name: &str, value: EvalResult) -> anyhow::Result<()> {
+        if !self.variables.contains_key(name) {
+            bail!("RUNTIME_ERR: Variable {} is not declared", name);
+        }
+
+        self.variables.insert(name.to_string(), value);
+
+        Ok(())
     }
 }

@@ -13,7 +13,7 @@ impl Display for Program {
         let flag = self.stmts.len() > 1;
 
         if flag {
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
 
         for stmt in &self.stmts {
@@ -21,7 +21,7 @@ impl Display for Program {
         }
 
         if flag {
-            write!(f, "\n")?;
+            writeln!(f)?;
         }
 
         write!(f, "]")?;

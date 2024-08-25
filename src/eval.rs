@@ -268,7 +268,9 @@ impl Evaluate for Declaration {
             .initializer
             .as_ref()
             .map_or(Ok(EvalResult::Nil), |x| x.eval(state))?;
-        state.set(&self.name.lexeme, value.clone());
+
+        state.declare(&self.name.lexeme, value.clone())?;
+
         Ok(value)
     }
 }
@@ -277,7 +279,7 @@ impl Evaluate for Assign {
     fn eval(&self, state: &mut State) -> EvalRuntimeResult {
         let value = self.value.eval(state)?;
 
-        state.set(&self.name.lexeme, value.clone());
+        state.assign(&self.name.lexeme, value.clone())?;
 
         Ok(value)
     }
