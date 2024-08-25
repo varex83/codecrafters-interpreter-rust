@@ -6,7 +6,7 @@ use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::ops::{Add, Div, Mul, Neg, Not, Sub};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum EvalResult {
     Bool(bool),
     String(String),
@@ -133,7 +133,7 @@ impl Evaluate for Expr {
 }
 
 impl Evaluate for Literal {
-    fn eval(&self, _state: &mut State) -> EvalRuntimeResult {
+    fn eval(&self, state: &mut State) -> EvalRuntimeResult {
         Ok(match self {
             Literal::Number(number) => EvalResult::Number({
                 let literal = number.literal.to_string();
@@ -144,6 +144,13 @@ impl Evaluate for Literal {
             Literal::True(_) => EvalResult::Bool(true),
             Literal::False(_) => EvalResult::Bool(false),
             Literal::Nil(_) => EvalResult::Nil,
+            Literal::Ident(t) => state
+                .get(&t.lexeme)
+                .ok_or(anyhow::anyhow!(
+                    "RUNTIME_ERR: Undefined variable {:?}",
+                    t.lexeme
+                ))?
+                .clone(),
         })
     }
 }

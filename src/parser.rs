@@ -1,15 +1,3 @@
-//
-// expression     → equality ;
-// equality       → comparison ( ( "!=" | "==" ) comparison )* ;
-// comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
-// term           → factor ( ( "-" | "+" ) factor )* ;
-// factor         → unary ( ( "/" | "*" ) unary )* ;
-// unary          → ( "!" | "-" ) unary
-// | primary ;
-// primary        → NUMBER | STRING | "true" | "false" | "nil"
-// | "(" expression ")" ;
-//
-
 use crate::token::{Loc, Locate, Token, TokenKind};
 use anyhow::bail;
 use anyhow::Result;
@@ -111,6 +99,7 @@ pub enum Literal {
     True(Token),
     False(Token),
     Nil(Token),
+    Ident(Token),
 }
 
 impl Locate for Literal {
@@ -127,6 +116,7 @@ impl Literal {
             Literal::True(t) => t,
             Literal::False(t) => t,
             Literal::Nil(t) => t,
+            Literal::Ident(t) => t,
         }
             .clone()
     }
@@ -287,7 +277,7 @@ impl Parser {
     }
 
     fn stmt(&mut self) -> StmtResult {
-        if let Some(_) = self.peek_tokens(&[TokenKind::Print]) {
+        if self.peek_tokens(&[TokenKind::Print]).is_some() {
             Ok(Stmt::Print(self.print_stmt()?))
         } else if let Some(_) = self.peek_tokens(&[TokenKind::If]) {
             Ok(Stmt::If(self.if_stmt()?))
@@ -335,7 +325,7 @@ impl Parser {
         Ok(Stmt::Expr(expr))
     }
 
-    fn expr(&mut self) -> ParserResult {
+    pub fn expr(&mut self) -> ParserResult {
         self.equality()
     }
 
@@ -447,6 +437,10 @@ impl Parser {
                 self.advance();
                 Ok(Expr::Literal(Literal::Nil(token)))
             }
+            TokenKind::Identifier => {
+                self.advance();
+                Ok(Expr::Literal(Literal::Ident(token)))
+            }
             TokenKind::LeftParen => {
                 self.advance();
 
@@ -535,6 +529,9 @@ impl Display for Literal {
                 }
                 Literal::True(_) | Literal::False(_) | Literal::Nil(_) => {
                     token.lexeme
+                }
+                Literal::Ident(_) => {
+                    format!("{}", token.lexeme)
                 }
             }
         )
